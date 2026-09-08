@@ -58,13 +58,21 @@ export const repo = {
     if (error) throw error;
   },
 
-  async addMemberByEmail(tripId: string, email: string, role: TripRole = "editor") {
+  /** Resolves "added" (user existed) or "invited" (stored until they sign in). */
+  async addMemberByEmail(tripId: string, email: string, role: TripRole = "editor"): Promise<"added" | "invited"> {
     const supabase = createClient();
-    const { error } = await supabase.rpc("add_trip_member_by_email", {
+    const { data, error } = await supabase.rpc("add_trip_member_by_email", {
       p_trip_id: tripId,
       p_email: email,
       p_role: role,
     });
+    if (error) throw error;
+    return data === "added" ? "added" : "invited";
+  },
+
+  async removeInvite(tripId: string, email: string) {
+    const supabase = createClient();
+    const { error } = await supabase.from("trip_invites").delete().match({ trip_id: tripId, email });
     if (error) throw error;
   },
 

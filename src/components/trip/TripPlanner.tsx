@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { Activity, Traveler, Trip, TripMemberWithProfile, TripRole } from "@/lib/database.types";
+import type { Activity, Traveler, Trip, TripInvite, TripMemberWithProfile, TripRole } from "@/lib/database.types";
 import { createClient } from "@/lib/supabase/client";
 import { repo } from "@/lib/trip/repo";
 import { t } from "@/lib/i18n";
@@ -26,17 +26,20 @@ export function TripPlanner({
   initialTravelers,
   initialActivities,
   initialMembers,
+  initialInvites = [],
   me,
 }: {
   trip: Trip;
   initialTravelers: Traveler[];
   initialActivities: Activity[];
   initialMembers: TripMemberWithProfile[];
+  initialInvites?: TripInvite[];
   me: { id: string; role: TripRole; isAdmin: boolean };
 }) {
   const [activities, setActivities] = useState(initialActivities);
   const [travelers, setTravelers] = useState(initialTravelers);
   const [members, setMembers] = useState(initialMembers);
+  const [invites, setInvites] = useState(initialInvites);
   const [view, setView] = useState<View>("day");
   // Start on today when the trip is in progress, otherwise on day one.
   const [dayIndex, setDayIndex] = useState(() => {
@@ -86,6 +89,10 @@ export function TripPlanner({
       .on("postgres_changes", { event: "*", schema: "public", table: "trip_members", filter: `trip_id=eq.${trip.id}` }, async () => {
         const { data } = await supabase.rpc("trip_members_with_profiles", { p_trip_id: trip.id });
         if (data) setMembers(data as TripMemberWithProfile[]);
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "trip_invites", filter: `trip_id=eq.${trip.id}` }, async () => {
+        const { data } = await supabase.from("trip_invites").select("*").eq("trip_id", trip.id).order("created_at");
+        if (data) setInvites(data as TripInvite[]);
       })
       .subscribe();
     return () => {
@@ -181,16 +188,30 @@ export function TripPlanner({
   );
 
   const invite = useCallback(
-    async (email: string, role: TripRole) => {
+    async (email: string, role: TripRole): Promise<{ ok: boolean; message: string }> => {
       try {
-        await repo.addMemberByEmail(trip.id, email, role);
-        return null;
+        const result = await repo.addMemberByEmail(trip.id, email, role);
+        if (result === "invited") {
+          setInvites((list) =>
+            list.some((i) => i.email === email.toLowerCase())
+              ? list
+              : [...list, { trip_id: trip.id, email: email.toLowerCase(), role, invited_by: me.id, created_at: new Date().toISOString() }],
+          );
+        }
+        return { ok: true, message: result === "added" ? t.members.added : t.members.invited };
       } catch (e) {
         const code = (e as { code?: string }).code;
-        return code === "P0002" ? t.members.notFound : t.common.saveError;
+        return { ok: false, message: code === "22023" ? t.members.invalidEmail : t.common.saveError };
       }
     },
-    [trip.id],
+    [trip.id, me.id],
+  );
+  const removeInvite = useCallback(
+    (email: string) => {
+      setInvites((list) => list.filter((i) => i.email !== email));
+      repo.removeInvite(trip.id, email).catch(fail);
+    },
+    [trip.id, fail],
   );
   const removeMember = useCallback(
     (userId: string) => {
@@ -206,6 +227,7 @@ export function TripPlanner({
       travelers={travelers}
       activities={activities}
       members={members}
+      invites={invites}
       filterTraveler={filterTraveler}
       canEdit={canEdit}
       isOwner={isOwner}
@@ -221,6 +243,7 @@ export function TripPlanner({
       }}
       onInvite={invite}
       onRemoveMember={removeMember}
+      onRemoveInvite={removeInvite}
     />
   );
 

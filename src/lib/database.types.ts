@@ -75,6 +75,14 @@ export interface Activity {
   updated_at: string;
 }
 
+export interface TripInvite {
+  trip_id: string;
+  email: string;
+  role: TripRole;
+  invited_by: string | null;
+  created_at: string;
+}
+
 export interface TripMemberWithProfile {
   user_id: string;
   role: TripRole;

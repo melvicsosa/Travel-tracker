@@ -311,18 +311,21 @@ button { cursor: pointer; }
 .daypill.on .dw, .daypill.on .dc { color: color-mix(in srgb, var(--on-accent) 70%, transparent); }
 .daypill.on .dn { color: var(--on-accent); }
 
-/* Theme toggle */
-.theme-toggle { display: inline-flex; align-items: center; gap: 6px; }
-.theme-toggle .sw {
-  position: relative; width: 44px; height: 26px; border-radius: 999px; border: 1px solid var(--line-strong);
-  background: var(--surface-2); cursor: pointer; transition: background-color 0.15s;
+/* Theme switch: pill with the active theme's icon inside the thumb */
+.theme-switch {
+  position: relative; width: 52px; height: 30px; border-radius: 999px; padding: 0;
+  border: 1px solid var(--line-strong); background: var(--surface-2); cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
 }
-.theme-toggle .sw::after {
-  content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%;
-  background: var(--teal); transition: transform 0.15s;
+.theme-switch[aria-checked="true"] { background: var(--teal-soft); border-color: var(--teal); }
+.theme-switch .thumb {
+  position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--surface); color: var(--ink-2);
+  box-shadow: 0 1px 2px rgba(16, 38, 44, 0.2); transition: transform 0.18s ease, color 0.15s;
 }
-.theme-toggle .sw[aria-checked="true"]::after { transform: translateX(18px); }
-.theme-toggle svg { width: 16px; height: 16px; color: var(--ink-3); }
+.theme-switch[aria-checked="true"] .thumb { transform: translateX(22px); color: var(--teal); }
+.theme-switch .thumb svg { width: 14px; height: 14px; }
+.theme-switch:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 /* Hour range slider (two thumbs on one track) */
 .hourrange { display: flex; align-items: center; gap: 10px; min-width: 200px; }

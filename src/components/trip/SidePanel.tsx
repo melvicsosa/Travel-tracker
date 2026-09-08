@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Activity, Traveler, TripMemberWithProfile, TripRole } from "@/lib/database.types";
+import type { Activity, Traveler, TripInvite, TripMemberWithProfile, TripRole } from "@/lib/database.types";
 import { TRAVELER_COLORS, initials } from "@/lib/categories";
 import { t } from "@/lib/i18n";
 import { formatTime, fromYMD, weekdayShort } from "@/lib/time";
@@ -14,6 +14,7 @@ export function SidePanel({
   travelers,
   activities,
   members,
+  invites,
   filterTraveler,
   canEdit,
   isOwner,
@@ -23,11 +24,13 @@ export function SidePanel({
   onOpenActivity,
   onInvite,
   onRemoveMember,
+  onRemoveInvite,
 }: {
   tripId: string;
   travelers: Traveler[];
   activities: Activity[];
   members: TripMemberWithProfile[];
+  invites: TripInvite[];
   filterTraveler: string | null;
   canEdit: boolean;
   isOwner: boolean;
@@ -35,12 +38,13 @@ export function SidePanel({
   onAddTraveler: (p: Traveler) => void;
   onRemoveTraveler: (id: string) => void;
   onOpenActivity: (a: Activity) => void;
-  onInvite: (email: string, role: TripRole) => Promise<string | null>;
+  onInvite: (email: string, role: TripRole) => Promise<{ ok: boolean; message: string }>;
   onRemoveMember: (userId: string) => void;
+  onRemoveInvite: (email: string) => void;
 }) {
   const [addOpen, setAddOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteMsg, setInviteMsg] = useState<{ ok: boolean; message: string } | null>(null);
   const [inviting, setInviting] = useState(false);
 
   const reservations = activities
@@ -129,6 +133,25 @@ export function SidePanel({
             ) : null}
           </div>
         ))}
+        {invites.length > 0 ? (
+          <div className="flex flex-col gap-1 mt-1">
+            <span className="text-xs text-ink-3 font-semibold">{t.members.pendingInvites}</span>
+            {invites.map((i) => (
+              <div key={i.email} className="flex items-center gap-2 px-2 py-1">
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "var(--citrus)" }} />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm truncate mono">{i.email}</span>
+                  <span className="block text-xs text-ink-3">{t.trips.role[i.role]} · {t.members.pendingLabel}</span>
+                </span>
+                {isOwner ? (
+                  <button className="btn sm ghost" style={{ color: "var(--hibiscus)" }} onClick={() => onRemoveInvite(i.email)} aria-label={t.members.removeInvite} title={t.members.removeInvite}>
+                    ×
+                  </button>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : null}
         {isOwner ? (
           <form
             className="flex flex-col gap-2 mt-1"
@@ -136,10 +159,10 @@ export function SidePanel({
               e.preventDefault();
               if (!inviteEmail.trim()) return;
               setInviting(true);
-              const err = await onInvite(inviteEmail.trim(), "editor");
+              const res = await onInvite(inviteEmail.trim(), "editor");
               setInviting(false);
-              setInviteError(err);
-              if (!err) setInviteEmail("");
+              setInviteMsg(res);
+              if (res.ok) setInviteEmail("");
             }}
           >
             <div className="field">
@@ -148,8 +171,8 @@ export function SidePanel({
                 onChange={(e) => setInviteEmail(e.target.value)} />
             </div>
             <button className="btn sm primary self-start" disabled={inviting}>{t.members.add}</button>
-            <p className="text-xs" style={{ color: inviteError ? "var(--hibiscus)" : "var(--ink-3)" }}>
-              {inviteError ?? t.members.hint}
+            <p className="text-xs" style={{ color: inviteMsg ? (inviteMsg.ok ? "var(--teal)" : "var(--hibiscus)") : "var(--ink-3)" }}>
+              {inviteMsg ? inviteMsg.message : t.members.hint}
             </p>
           </form>
         ) : null}
