@@ -21,11 +21,11 @@ export default async function PendingPage() {
         <p className="text-ink-3 text-xs mono">{profile.email}</p>
         <div className="flex flex-col gap-2">
           {!rejected ? (
-            <a className="btn primary block" href="/pending">
+            <a className="btn primary wide" href="/pending">
               {t.pending.refresh}
             </a>
           ) : null}
-          <SignOutButton className="btn ghost block" />
+          <SignOutButton className="btn ghost wide" />
         </div>
       </div>
     </main>

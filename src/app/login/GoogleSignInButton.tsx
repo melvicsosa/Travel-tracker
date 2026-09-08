@@ -20,7 +20,7 @@ export function GoogleSignInButton({ next }: { next?: string }) {
   }
 
   return (
-    <button className="btn primary block" onClick={signIn} disabled={busy}>
+    <button className="btn primary wide" onClick={signIn} disabled={busy}>
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path fill="currentColor" d="M21.6 12.23c0-.68-.06-1.33-.17-1.96H12v3.71h5.38a4.6 4.6 0 0 1-2 3.02v2.5h3.24c1.9-1.75 2.98-4.32 2.98-7.27Z" opacity=".9"/>
         <path fill="currentColor" d="M12 22c2.7 0 4.96-.9 6.62-2.42l-3.24-2.5c-.9.6-2.04.96-3.38.96-2.6 0-4.8-1.75-5.59-4.1H3.07v2.58A10 10 0 0 0 12 22Z" opacity=".7"/>
