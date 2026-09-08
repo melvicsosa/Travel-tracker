@@ -6,9 +6,9 @@ export const metadata = { title: "Entrar" };
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; error?: string }>;
+  searchParams: Promise<{ next?: string; error?: string; reason?: string }>;
 }) {
-  const { next, error } = await searchParams;
+  const { next, error, reason } = await searchParams;
 
   return (
     <main className="min-h-dvh grid place-items-center p-6">
@@ -19,7 +19,12 @@ export default async function LoginPage({
           <p className="text-ink-2 text-sm">{t.auth.loginIntro}</p>
         </div>
         <GoogleSignInButton next={next} />
-        {error ? <p className="text-hibiscus text-sm">{t.auth.error}</p> : null}
+        {error ? (
+          <div className="text-hibiscus text-sm flex flex-col gap-1">
+            <p>{t.auth.error}</p>
+            {reason ? <p className="mono text-xs opacity-80 break-words">{reason}</p> : null}
+          </div>
+        ) : null}
       </div>
     </main>
   );

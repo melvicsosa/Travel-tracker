@@ -7,6 +7,9 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/trips";
 
+  // Supabase forwards provider errors as query params instead of a code.
+  const providerError = searchParams.get("error_description") ?? searchParams.get("error");
+
   if (code) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
@@ -15,7 +18,9 @@ export async function GET(request: NextRequest) {
       const safeNext = next.startsWith("/") ? next : "/trips";
       return NextResponse.redirect(`${origin}${safeNext}`);
     }
+    return NextResponse.redirect(`${origin}/login?error=oauth&reason=${encodeURIComponent(error.message)}`);
   }
 
-  return NextResponse.redirect(`${origin}/login?error=oauth`);
+  const reason = providerError ?? "missing_code";
+  return NextResponse.redirect(`${origin}/login?error=oauth&reason=${encodeURIComponent(reason)}`);
 }
