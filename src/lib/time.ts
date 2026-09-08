@@ -92,3 +92,40 @@ export function formatRange(start: string, end: string) {
   const b = fromYMD(end);
   return `${a.getDate()} ${monthShort(a)} – ${b.getDate()} ${monthShort(b)} ${b.getFullYear()}`;
 }
+
+/** Current date (YMD) and minutes-from-midnight in an IANA time zone. */
+export function nowInZone(timeZone: string): { ymd: string; minutes: number } {
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", hour12: false,
+    }).formatToParts(new Date());
+    const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "00";
+    const hour = Number(get("hour")) % 24;
+    return { ymd: `${get("year")}-${get("month")}-${get("day")}`, minutes: hour * 60 + Number(get("minute")) };
+  } catch {
+    const d = new Date();
+    return { ymd: toYMD(d), minutes: d.getHours() * 60 + d.getMinutes() };
+  }
+}
+
+/** Common zones for the settings select, plus whatever the browser supports. */
+export const DEFAULT_TIMEZONE = "America/New_York";
+export const COMMON_TIMEZONES = [
+  "America/New_York",
+  "America/Chicago",
+  "America/Denver",
+  "America/Los_Angeles",
+  "America/Santo_Domingo",
+  "America/Mexico_City",
+  "America/Bogota",
+  "America/Lima",
+  "America/Buenos_Aires",
+  "America/Sao_Paulo",
+  "Europe/Madrid",
+  "Europe/London",
+  "Europe/Paris",
+  "Asia/Tokyo",
+  "UTC",
+];

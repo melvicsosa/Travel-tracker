@@ -36,6 +36,7 @@ export interface Trip {
   place: string;
   start_date: string; // YYYY-MM-DD
   end_date: string; // YYYY-MM-DD
+  timezone: string; // IANA, e.g. America/New_York
   created_by: string;
   created_at: string;
 }

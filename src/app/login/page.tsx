@@ -1,5 +1,6 @@
 import { t } from "@/lib/i18n";
 import { GoogleSignInButton } from "./GoogleSignInButton";
+import { Logo } from "@/components/ui/Logo";
 
 export const metadata = { title: "Entrar" };
 
@@ -13,8 +14,8 @@ export default async function LoginPage({
   return (
     <main className="min-h-dvh grid place-items-center p-6">
       <div className="w-full max-w-sm flex flex-col gap-6">
-        <div className="flex flex-col gap-2">
-          <span className="lbl">{t.app.name}</span>
+        <div className="flex flex-col gap-4">
+          <Logo href="/login" height={44} />
           <h1 className="text-3xl">{t.app.tagline}</h1>
           <p className="text-ink-2 text-sm">{t.auth.loginIntro}</p>
         </div>

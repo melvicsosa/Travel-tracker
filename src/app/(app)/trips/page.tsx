@@ -26,17 +26,14 @@ export default async function TripsPage() {
           <p className="text-sm max-w-sm">{t.trips.emptyHint}</p>
         </div>
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 420px), 1fr))" }}>
           {trips.map((trip) => (
             <li key={trip.id}>
-              <Link
-                href={`/trips/${trip.id}`}
-                className="block rounded-xl border border-line bg-surface p-5 hover:shadow-[var(--shadow)] transition-shadow"
-              >
-                <div className="font-display font-bold text-lg leading-tight">{trip.name}</div>
-                <div className="text-ink-3 text-sm mt-1">
+              <Link href={`/trips/${trip.id}`} className="tripcard">
+                <div className="title">{trip.name}</div>
+                <div className="meta">
                   {trip.place ? `${trip.place} · ` : ""}
-                  {formatRange(trip.start_date, trip.end_date)} ·{" "}
+                  <b>{formatRange(trip.start_date, trip.end_date)}</b> ·{" "}
                   {t.trips.days(daysBetween(trip.start_date, trip.end_date).length)}
                 </div>
               </Link>

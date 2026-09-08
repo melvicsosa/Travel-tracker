@@ -26,8 +26,17 @@ Read `docs/PLAN.md` for the roadmap and `supabase/migrations/` for the schema.
 - **No secrets in the repo.** Only `NEXT_PUBLIC_*` values are used; they go in
   `.env.local` (git-ignored). `.env.example` documents them.
 - **Times are minutes from midnight** (`start_min`, `duration_min`) in the
-  trip's local time. No timezone conversion anywhere; dates are `YYYY-MM-DD`
-  strings handled by `src/lib/time.ts` (`fromYMD`/`toYMD` avoid UTC shifts).
+  trip's local time. No timezone conversion of stored data; dates are
+  `YYYY-MM-DD` strings handled by `src/lib/time.ts` (`fromYMD`/`toYMD` avoid
+  UTC shifts). `trips.timezone` (IANA, default America/New_York) is used only
+  to compute "now" for the red current-time line and the initial scroll
+  (`nowInZone()`), editable in the trip settings sheet.
+- **Brand assets** live in `public/brand/` (light/dark wordmarks, swapped by
+  CSS in `.logo`) and `public/icons/`; `src/app/icon.png` is the favicon.
+- **Class names vs Tailwind**: component classes live in `@layer components`
+  so utilities win; never name a component class like a Tailwind utility
+  (`block`, `grid`, `hidden`, `container`…) — `.actblock`/`.timegrid` exist
+  for that reason.
 
 ## Where things are
 

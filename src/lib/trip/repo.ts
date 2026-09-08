@@ -1,7 +1,7 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
-import type { Activity, Traveler, TripRole } from "@/lib/database.types";
+import type { Activity, Traveler, Trip, TripRole } from "@/lib/database.types";
 
 /**
  * Client-side writes for the planner. Every call is optimistic on the caller
@@ -59,6 +59,18 @@ export const repo = {
   },
 
   /** Resolves "added" (user existed) or "invited" (stored until they sign in). */
+  async updateTrip(id: string, patch: Partial<Pick<Trip, "name" | "place" | "start_date" | "end_date" | "timezone">>) {
+    const supabase = createClient();
+    const { error } = await supabase.from("trips").update(patch).eq("id", id);
+    if (error) throw error;
+  },
+
+  async deleteTrip(id: string) {
+    const supabase = createClient();
+    const { error } = await supabase.from("trips").delete().eq("id", id);
+    if (error) throw error;
+  },
+
   async addMemberByEmail(tripId: string, email: string, role: TripRole = "editor"): Promise<"added" | "invited"> {
     const supabase = createClient();
     const { data, error } = await supabase.rpc("add_trip_member_by_email", {

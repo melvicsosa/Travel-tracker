@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Activity, Traveler } from "@/lib/database.types";
-import { SNAP, clamp, formatDuration, formatHour, formatTime, fromYMD, snap, toYMD, weekdayShort } from "@/lib/time";
+import { SNAP, clamp, formatDuration, formatHour, formatTime, fromYMD, nowInZone, snap, toYMD, weekdayShort } from "@/lib/time";
+import { t } from "@/lib/i18n";
 import { layoutColumns, sortByStart } from "@/lib/trip/layout";
 import { ActivityBlock, type DragStart } from "./ActivityBlock";
 
@@ -31,6 +32,7 @@ export function CalendarGrid({
   hourPx,
   dayStart,
   dayEnd,
+  timeZone,
   activities,
   travelers,
   canEdit,
@@ -43,6 +45,8 @@ export function CalendarGrid({
   /** Visible window, minutes from midnight (e.g. 360–1440). */
   dayStart: number;
   dayEnd: number;
+  /** IANA zone used for the "now" line and the initial scroll. */
+  timeZone: string;
   activities: Activity[];
   travelers: Traveler[];
   canEdit: boolean;
@@ -56,9 +60,17 @@ export function CalendarGrid({
   const headH = multi ? 34 : 0;
   const PAD = 16;
   const PAD_BOTTOM = 40;
-  const today = toYMD(new Date());
+  const [now, setNow] = useState(() => nowInZone(timeZone));
+  const today = now.ymd;
+
+  // Tick the "now" line every minute (the first value comes from useState).
+  useEffect(() => {
+    const id = setInterval(() => setNow(nowInZone(timeZone)), 60_000);
+    return () => clearInterval(id);
+  }, [timeZone]);
 
   const colsRef = useRef<HTMLDivElement>(null);
+  const scrollerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<Drag | null>(null);
   const [badge, setBadge] = useState<{ x: number; y: number; text: string } | null>(null);
 
@@ -73,6 +85,24 @@ export function CalendarGrid({
   }, [days, activities]);
 
   const dayKeys = useMemo(() => days.map(toYMD), [days]);
+
+  // Initial scroll: to "now" when today is on screen, otherwise to the first
+  // activity of the first visible day (or the top of the window).
+  const scrollKey = dayKeys.join(",");
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    let target = dayStart;
+    if (dayKeys.includes(today) && now.minutes >= dayStart && now.minutes <= dayEnd) {
+      target = now.minutes - 60;
+    } else {
+      const first = dayKeys.map((k) => byDay[k]?.list[0]).find(Boolean);
+      if (first) target = first.start_min - 30;
+    }
+    el.scrollTop = Math.max(0, (target - dayStart) * pxPerMin);
+    // Only on mount / day change; not on every tick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scrollKey, dayStart, dayEnd, pxPerMin]);
 
   const onPointerMove = useCallback(
     (e: PointerEvent) => {
@@ -181,8 +211,11 @@ export function CalendarGrid({
   const halfMarks: number[] = [];
   for (let m = dayStart; m <= dayEnd; m += 30) halfMarks.push(m);
 
+  const showNow = dayKeys.includes(today) && now.minutes >= dayStart && now.minutes <= dayEnd;
+  const nowTop = (now.minutes - dayStart) * pxPerMin;
+
   return (
-    <div className="scroller">
+    <div className="scroller" ref={scrollerRef}>
       <div className="timegrid">
         <div className="gutter" style={{ height: height + headH + PAD + PAD_BOTTOM }}>
           {headH ? <div className="ghead" style={{ height: headH }} /> : null}
@@ -193,6 +226,11 @@ export function CalendarGrid({
                 {formatHour(m)}
               </div>
             ))}
+            {showNow ? (
+              <div className="nowlabel mono" style={{ top: nowTop }} aria-label={t.hours.now}>
+                {formatTime(now.minutes).replace(/ (a|p)\.m\./, "")}
+              </div>
+            ) : null}
           </div>
         </div>
         <div className={`cols${multi ? " multi" : ""}`} ref={colsRef}>
@@ -220,6 +258,7 @@ export function CalendarGrid({
                   {halfMarks.map((m) => (
                     <div key={m} className={`hline${m % 60 ? " half" : ""}`} style={{ top: (m - dayStart) * pxPerMin }} />
                   ))}
+                  {showNow && key === today ? <div className="nowline" style={{ top: nowTop }} aria-hidden="true" /> : null}
                   {list.map((a) => (
                     <ActivityBlock
                       key={a.id}

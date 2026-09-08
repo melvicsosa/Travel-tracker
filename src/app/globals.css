@@ -317,6 +317,7 @@ button { cursor: pointer; }
   border: 1px solid var(--line-strong); background: var(--surface-2); cursor: pointer;
   transition: background-color 0.15s, border-color 0.15s;
 }
+.theme-switch:hover { border-color: var(--teal); }
 .theme-switch[aria-checked="true"] { background: var(--teal-soft); border-color: var(--teal); }
 .theme-switch .thumb {
   position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%;
@@ -327,36 +328,76 @@ button { cursor: pointer; }
 .theme-switch .thumb svg { width: 14px; height: 14px; }
 .theme-switch:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
-/* Hour range slider (two thumbs on one track) */
-.hourrange { display: flex; align-items: center; gap: 10px; min-width: 200px; }
-.hourrange .hr-label { font-size: 13.5px; color: var(--ink-2); white-space: nowrap; }
-.hourrange .hr-track {
-  position: relative; flex: 1 1 auto; height: 28px; min-width: 120px;
+/* Logo: one file per theme, swapped by the same rules as the tokens */
+.logo { display: inline-flex; align-items: center; line-height: 0; }
+.logo img { height: 36px; width: auto; display: block; }
+.logo .dark { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .logo .light { display: none; }
+  :root:not([data-theme="light"]) .logo .dark { display: block; }
 }
-.hourrange .hr-track::before {
-  content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 4px; transform: translateY(-50%);
-  border-radius: 2px; background: var(--line-strong);
+:root[data-theme="dark"] .logo .light { display: none; }
+:root[data-theme="dark"] .logo .dark { display: block; }
+
+/* Header nav */
+.navlink {
+  display: inline-flex; align-items: center; height: 40px; padding: 0 12px; border-radius: 9px;
+  font-size: 15px; font-weight: 600; color: var(--ink-2); text-decoration: none;
+  transition: background-color 0.12s, color 0.12s;
 }
-.hourrange .hr-track::after {
-  content: ""; position: absolute; left: var(--lo); right: calc(100% - var(--hi)); top: 50%; height: 4px;
-  transform: translateY(-50%); border-radius: 2px; background: var(--teal);
+.navlink:hover { background: var(--surface-2); color: var(--ink); }
+.navlink[aria-current="page"] { color: var(--teal); background: var(--teal-soft); }
+.drawer-scrim { position: fixed; inset: 0; z-index: 50; background: rgba(9, 24, 28, 0.5); backdrop-filter: blur(2px); }
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 51; width: min(320px, 86vw);
+  background: var(--surface); border-left: 1px solid var(--line); box-shadow: var(--shadow-lift);
+  display: flex; flex-direction: column; gap: 6px; padding: 16px 14px calc(16px + var(--safe-bottom));
+  animation: drawer-in 0.2s ease-out;
 }
-.hourrange input[type="range"] {
-  position: absolute; inset: 0; width: 100%; height: 28px; margin: 0; background: none;
-  pointer-events: none; -webkit-appearance: none; appearance: none;
+@keyframes drawer-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+.drawer .navlink { height: 46px; font-size: 16px; }
+
+/* Trip cards */
+.tripcard {
+  display: block; border-radius: 14px; border: 1px solid var(--line); background: var(--surface);
+  padding: 20px 22px; text-decoration: none; color: inherit; min-width: 0;
+  transition: box-shadow 0.15s, border-color 0.15s, transform 0.1s;
 }
-.hourrange input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none; appearance: none; pointer-events: auto; cursor: grab;
-  width: 18px; height: 18px; border-radius: 50%; background: var(--surface);
-  border: 2px solid var(--teal); box-shadow: var(--shadow);
+.tripcard:hover { box-shadow: var(--shadow); border-color: var(--line-strong); }
+.tripcard:hover .title { color: var(--teal); }
+.tripcard .title { font-family: var(--font-display); font-weight: 700; font-size: 20px; line-height: 1.2; transition: color 0.12s; }
+.tripcard .meta { margin-top: 6px; color: var(--ink-3); font-size: 15px; }
+.tripcard .meta b { color: var(--ink-2); font-weight: 700; }
+
+/* Current time line (Outlook style) */
+.nowline { position: absolute; left: 0; right: 0; height: 0; border-top: 2px solid var(--hibiscus); z-index: 5; pointer-events: none; }
+.nowline::before { content: ""; position: absolute; left: -5px; top: -6px; width: 10px; height: 10px; border-radius: 50%; background: var(--hibiscus); }
+.gutter .nowlabel {
+  position: absolute; right: 6px; transform: translateY(-50%); z-index: 6; pointer-events: none;
+  font-size: 11px; font-weight: 700; color: var(--paper); background: var(--hibiscus); padding: 1px 6px; border-radius: 6px;
 }
-.hourrange input[type="range"]::-moz-range-thumb {
-  pointer-events: auto; cursor: grab; width: 18px; height: 18px; border-radius: 50%;
-  background: var(--surface); border: 2px solid var(--teal); box-shadow: var(--shadow);
+
+/* Hour window control: pill button + popover with selects and presets */
+.hourwin { position: relative; }
+.hourwin .pill {
+  display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px 0 10px; border-radius: 10px;
+  border: 1px solid var(--line-strong); background: var(--surface); font-size: 14px; font-weight: 600; color: var(--ink);
+  transition: border-color 0.12s, background-color 0.12s;
 }
-.hourrange input[type="range"]::-moz-range-track { background: transparent; }
-.hourrange input[type="range"]:focus-visible { outline: none; }
-.hourrange input[type="range"]:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--focus); outline-offset: 2px; }
+.hourwin .pill:hover, .hourwin .pill[aria-expanded="true"] { border-color: var(--teal); }
+.hourwin .pill svg { width: 16px; height: 16px; color: var(--ink-3); }
+.hourwin .pop {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; width: 300px; max-width: calc(100vw - 24px);
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-lift);
+  padding: 14px; display: flex; flex-direction: column; gap: 12px;
+}
+.hourwin .pop .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.hourwin .pop select {
+  width: 100%; height: 40px; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--paper);
+  padding: 0 10px; font-size: 15px;
+}
+.hourwin .pop select:focus { outline: none; border-color: var(--teal); box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal) 22%, transparent); }
+.hourwin .presets { display: flex; flex-wrap: wrap; gap: 6px; }
 
 /* Agenda */
 .arow {

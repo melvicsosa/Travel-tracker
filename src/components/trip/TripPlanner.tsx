@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Activity, Traveler, Trip, TripInvite, TripMemberWithProfile, TripRole } from "@/lib/database.types";
 import { createClient } from "@/lib/supabase/client";
 import { repo } from "@/lib/trip/repo";
 import { t } from "@/lib/i18n";
-import { DAY_END, DAY_START, SNAP, clamp, daysBetween, formatRange, snap, toYMD } from "@/lib/time";
+import { DAY_END, DAY_START, SNAP, clamp, daysBetween, formatRange, nowInZone, snap, toYMD } from "@/lib/time";
 import { BackIcon, MenuIcon, PlusIcon } from "@/components/ui/Icons";
 import { DayStrip } from "./DayStrip";
 import { HourRange } from "./HourRange";
@@ -14,6 +15,8 @@ import { CalendarGrid } from "./CalendarGrid";
 import { AgendaView } from "./AgendaView";
 import { ActivitySheet } from "./ActivitySheet";
 import { SidePanel } from "./SidePanel";
+import { TripSettingsSheet } from "./TripSettingsSheet";
+import { SettingsIcon } from "@/components/ui/Icons";
 
 type View = "day" | "period" | "agenda";
 
@@ -22,7 +25,7 @@ type View = "day" | "period" | "agenda";
  * members, subscribes to realtime changes, and applies optimistic updates.
  */
 export function TripPlanner({
-  trip,
+  trip: initialTrip,
   initialTravelers,
   initialActivities,
   initialMembers,
@@ -36,6 +39,9 @@ export function TripPlanner({
   initialInvites?: TripInvite[];
   me: { id: string; role: TripRole; isAdmin: boolean };
 }) {
+  const router = useRouter();
+  const [trip, setTrip] = useState(initialTrip);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [activities, setActivities] = useState(initialActivities);
   const [travelers, setTravelers] = useState(initialTravelers);
   const [members, setMembers] = useState(initialMembers);
@@ -43,7 +49,9 @@ export function TripPlanner({
   const [view, setView] = useState<View>("day");
   // Start on today when the trip is in progress, otherwise on day one.
   const [dayIndex, setDayIndex] = useState(() => {
-    const i = daysBetween(trip.start_date, trip.end_date).map(toYMD).indexOf(toYMD(new Date()));
+    const i = daysBetween(initialTrip.start_date, initialTrip.end_date)
+      .map(toYMD)
+      .indexOf(nowInZone(initialTrip.timezone || "America/New_York").ymd);
     return i >= 0 ? i : 0;
   });
   const [filterTraveler, setFilterTraveler] = useState<string | null>(null);
@@ -70,6 +78,7 @@ export function TripPlanner({
 
   const canEdit = me.isAdmin || me.role === "owner" || me.role === "editor";
   const isOwner = me.isAdmin || me.role === "owner";
+  const timeZone = trip.timezone || "America/New_York";
   const days = useMemo(() => daysBetween(trip.start_date, trip.end_date), [trip.start_date, trip.end_date]);
   const dayKeys = useMemo(() => days.map(toYMD), [days]);
 
@@ -89,6 +98,9 @@ export function TripPlanner({
       .on("postgres_changes", { event: "*", schema: "public", table: "trip_members", filter: `trip_id=eq.${trip.id}` }, async () => {
         const { data } = await supabase.rpc("trip_members_with_profiles", { p_trip_id: trip.id });
         if (data) setMembers(data as TripMemberWithProfile[]);
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "trips", filter: `id=eq.${trip.id}` }, (payload) => {
+        setTrip((old) => ({ ...old, ...(payload.new as Partial<Trip>) }));
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "trip_invites", filter: `trip_id=eq.${trip.id}` }, async () => {
         const { data } = await supabase.from("trip_invites").select("*").eq("trip_id", trip.id).order("created_at");
@@ -221,6 +233,21 @@ export function TripPlanner({
     [trip.id, fail],
   );
 
+  const saveSettings = useCallback(
+    (patch: Pick<Trip, "name" | "place" | "start_date" | "end_date" | "timezone">) => {
+      setTrip((old) => ({ ...old, ...patch }));
+      setSettingsOpen(false);
+      repo.updateTrip(trip.id, patch).catch(fail);
+    },
+    [trip.id, fail],
+  );
+  const deleteTrip = useCallback(() => {
+    repo
+      .deleteTrip(trip.id)
+      .then(() => router.push("/trips"))
+      .catch(fail);
+  }, [trip.id, router, fail]);
+
   const panel = (
     <SidePanel
       tripId={trip.id}
@@ -268,6 +295,11 @@ export function TripPlanner({
             </button>
           ))}
         </div>
+        {isOwner ? (
+          <button className="btn icon ghost" onClick={() => setSettingsOpen(true)} aria-label={t.settings.open} title={t.settings.open}>
+            <SettingsIcon />
+          </button>
+        ) : null}
         {canEdit ? (
           <button className="btn primary hidden sm:inline-flex" onClick={() => newActivity()}>
             <PlusIcon />
@@ -289,11 +321,11 @@ export function TripPlanner({
                 <div className="min-w-0 flex-1">
                   <DayStrip days={days} selected={dayIndex} counts={counts} onSelect={setDayIndex} />
                 </div>
-                <div className="hidden md:block px-4 shrink-0 w-72">
+                <div className="hidden md:flex items-center px-4 shrink-0">
                   <HourRange start={hours.start} end={hours.end} onChange={setHourWindow} />
                 </div>
               </div>
-              <div className="md:hidden px-4 py-2 border-b border-line bg-surface">
+              <div className="md:hidden flex justify-end px-4 py-2 border-b border-line bg-surface">
                 <HourRange start={hours.start} end={hours.end} onChange={setHourWindow} />
               </div>
               <CalendarGrid
@@ -301,6 +333,7 @@ export function TripPlanner({
                 hourPx={60}
                 dayStart={hours.start}
                 dayEnd={hours.end}
+                timeZone={timeZone}
                 activities={visible}
                 travelers={travelers}
                 canEdit={canEdit}
@@ -312,15 +345,14 @@ export function TripPlanner({
           ) : view === "period" ? (
             <>
               <div className="flex items-center justify-end px-4 py-2 border-b border-line bg-surface">
-                <div className="w-full md:w-72">
-                  <HourRange start={hours.start} end={hours.end} onChange={setHourWindow} />
-                </div>
+                <HourRange start={hours.start} end={hours.end} onChange={setHourWindow} />
               </div>
               <CalendarGrid
               days={days}
               hourPx={42}
               dayStart={hours.start}
               dayEnd={hours.end}
+              timeZone={timeZone}
               activities={visible}
               travelers={travelers}
               canEdit={canEdit}
@@ -357,6 +389,10 @@ export function TripPlanner({
             {panel}
           </aside>
         </div>
+      ) : null}
+
+      {settingsOpen ? (
+        <TripSettingsSheet trip={trip} onSave={saveSettings} onDelete={deleteTrip} onClose={() => setSettingsOpen(false)} />
       ) : null}
 
       {editing ? (
