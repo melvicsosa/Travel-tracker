@@ -9,6 +9,7 @@ import { t } from "@/lib/i18n";
 import { DAY_END, DAY_START, SNAP, clamp, daysBetween, formatRange, snap, toYMD } from "@/lib/time";
 import { BackIcon, MenuIcon, PlusIcon } from "@/components/ui/Icons";
 import { DayStrip } from "./DayStrip";
+import { HourRange } from "./HourRange";
 import { CalendarGrid } from "./CalendarGrid";
 import { AgendaView } from "./AgendaView";
 import { ActivitySheet } from "./ActivitySheet";
@@ -46,6 +47,23 @@ export function TripPlanner({
   const [editing, setEditing] = useState<{ activity: Activity; isNew: boolean } | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  // Visible hour window. Remembered per browser; defaults to 6 a.m.–midnight.
+  const [hours, setHours] = useState<{ start: number; end: number }>(() => {
+    try {
+      const raw = typeof window !== "undefined" ? window.localStorage.getItem("tt:hours") : null;
+      if (raw) {
+        const v = JSON.parse(raw);
+        if (Number.isFinite(v.start) && Number.isFinite(v.end) && v.end > v.start) return v;
+      }
+    } catch {}
+    return { start: DAY_START, end: DAY_END };
+  });
+  const setHourWindow = useCallback((start: number, end: number) => {
+    setHours({ start, end });
+    try {
+      window.localStorage.setItem("tt:hours", JSON.stringify({ start, end }));
+    } catch {}
+  }, []);
 
   const canEdit = me.isAdmin || me.role === "owner" || me.role === "editor";
   const isOwner = me.isAdmin || me.role === "owner";
@@ -93,8 +111,8 @@ export function TripPlanner({
 
   const moveActivity = useCallback(
     (a: Activity, date: string, startMin: number, durationMin: number) => {
-      const start = clamp(snap(startMin), DAY_START, DAY_END - SNAP);
-      const duration = clamp(snap(durationMin), SNAP, DAY_END - start);
+      const start = clamp(snap(startMin), 0, 1440 - SNAP);
+      const duration = clamp(snap(durationMin), SNAP, 1440 - start);
       if (a.date === date && a.start_min === start && a.duration_min === duration) return;
       const patch = { date, start_min: start, duration_min: duration };
       setActivities((list) => list.map((x) => (x.id === a.id ? { ...x, ...patch } : x)));
@@ -207,7 +225,7 @@ export function TripPlanner({
   );
 
   return (
-    <div className="flex flex-col flex-1 min-h-0" style={{ height: "calc(100dvh - 56px)" }}>
+    <div className="flex flex-col flex-1 min-h-0 h-full overflow-hidden">
       <header className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 border-b border-line bg-surface flex-wrap">
         <Link href="/trips" className="btn icon ghost" aria-label={t.common.back}>
           <BackIcon />
@@ -244,10 +262,22 @@ export function TripPlanner({
         <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
           {view === "day" ? (
             <>
-              <DayStrip days={days} selected={dayIndex} counts={counts} onSelect={setDayIndex} />
+              <div className="flex items-center border-b border-line bg-surface">
+                <div className="min-w-0 flex-1">
+                  <DayStrip days={days} selected={dayIndex} counts={counts} onSelect={setDayIndex} />
+                </div>
+                <div className="hidden md:block px-4 shrink-0 w-72">
+                  <HourRange start={hours.start} end={hours.end} onChange={setHourWindow} />
+                </div>
+              </div>
+              <div className="md:hidden px-4 py-2 border-b border-line bg-surface">
+                <HourRange start={hours.start} end={hours.end} onChange={setHourWindow} />
+              </div>
               <CalendarGrid
                 days={[days[Math.min(dayIndex, days.length - 1)]]}
                 hourPx={60}
+                dayStart={hours.start}
+                dayEnd={hours.end}
                 activities={visible}
                 travelers={travelers}
                 canEdit={canEdit}
@@ -257,9 +287,17 @@ export function TripPlanner({
               />
             </>
           ) : view === "period" ? (
-            <CalendarGrid
+            <>
+              <div className="flex items-center justify-end px-4 py-2 border-b border-line bg-surface">
+                <div className="w-full md:w-72">
+                  <HourRange start={hours.start} end={hours.end} onChange={setHourWindow} />
+                </div>
+              </div>
+              <CalendarGrid
               days={days}
               hourPx={42}
+              dayStart={hours.start}
+              dayEnd={hours.end}
               activities={visible}
               travelers={travelers}
               canEdit={canEdit}
@@ -267,6 +305,7 @@ export function TripPlanner({
               onOpen={openActivity}
               onCreateAt={newActivity}
             />
+            </>
           ) : (
             <AgendaView days={days} activities={visible} travelers={travelers} onOpen={openActivity} />
           )}

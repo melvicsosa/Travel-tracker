@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Activity, Traveler } from "@/lib/database.types";
-import { DAY_END, DAY_START, SNAP, clamp, formatDuration, formatHour, formatTime, fromYMD, snap, toYMD, weekdayShort } from "@/lib/time";
+import { SNAP, clamp, formatDuration, formatHour, formatTime, fromYMD, snap, toYMD, weekdayShort } from "@/lib/time";
 import { layoutColumns, sortByStart } from "@/lib/trip/layout";
 import { ActivityBlock, type DragStart } from "./ActivityBlock";
 
@@ -29,6 +29,8 @@ type Drag = {
 export function CalendarGrid({
   days,
   hourPx,
+  dayStart,
+  dayEnd,
   activities,
   travelers,
   canEdit,
@@ -38,6 +40,9 @@ export function CalendarGrid({
 }: {
   days: Date[];
   hourPx: number;
+  /** Visible window, minutes from midnight (e.g. 360–1440). */
+  dayStart: number;
+  dayEnd: number;
   activities: Activity[];
   travelers: Traveler[];
   canEdit: boolean;
@@ -46,10 +51,11 @@ export function CalendarGrid({
   onCreateAt: (date: string, startMin: number) => void;
 }) {
   const pxPerMin = hourPx / 60;
-  const height = (DAY_END - DAY_START) * pxPerMin;
+  const height = (dayEnd - dayStart) * pxPerMin;
   const multi = days.length > 1;
   const headH = multi ? 34 : 0;
-  const PAD = 10;
+  const PAD = 16;
+  const PAD_BOTTOM = 40;
   const today = toYMD(new Date());
 
   const colsRef = useRef<HTMLDivElement>(null);
@@ -79,7 +85,7 @@ export function CalendarGrid({
       const a = d.activity;
 
       if (d.mode === "move") {
-        const ns = clamp(a.start_min + snap(dy / pxPerMin), DAY_START, DAY_END - a.duration_min);
+        const ns = clamp(a.start_min + snap(dy / pxPerMin), dayStart, dayEnd - a.duration_min);
         d.dMin = ns - a.start_min;
         let dCol = 0;
         if (multi && d.colWidth > 0) {
@@ -96,13 +102,13 @@ export function CalendarGrid({
             (dCol ? ` · ${weekdayShort(targetDay)} ${targetDay.getDate()}` : ""),
         });
       } else {
-        const nd = clamp(snap(a.duration_min + dy / pxPerMin), SNAP, DAY_END - a.start_min);
+        const nd = clamp(snap(a.duration_min + dy / pxPerMin), SNAP, dayEnd - a.start_min);
         d.dMin = nd - a.duration_min;
         d.el.style.height = `${Math.max(18, nd * pxPerMin - 2)}px`;
         setBadge({ x: e.clientX, y: e.clientY, text: `${formatDuration(nd)} · hasta ${formatTime(a.start_min + nd)}` });
       }
     },
-    [pxPerMin, multi, dayKeys],
+    [pxPerMin, multi, dayKeys, dayStart, dayEnd],
   );
 
   const onPointerUp = useCallback(() => {
@@ -171,19 +177,19 @@ export function CalendarGrid({
   );
 
   const hourMarks: number[] = [];
-  for (let m = DAY_START; m <= DAY_END; m += 60) hourMarks.push(m);
+  for (let m = dayStart; m <= dayEnd; m += 60) hourMarks.push(m);
   const halfMarks: number[] = [];
-  for (let m = DAY_START; m <= DAY_END; m += 30) halfMarks.push(m);
+  for (let m = dayStart; m <= dayEnd; m += 30) halfMarks.push(m);
 
   return (
     <div className="scroller">
       <div className="timegrid">
-        <div className="gutter" style={{ height: height + headH + PAD }}>
+        <div className="gutter" style={{ height: height + headH + PAD + PAD_BOTTOM }}>
           {headH ? <div className="ghead" style={{ height: headH }} /> : null}
           <div style={{ height: PAD }} />
           <div style={{ position: "relative", height }}>
             {hourMarks.map((m) => (
-              <div key={m} className="hr mono" style={{ top: (m - DAY_START) * pxPerMin }}>
+              <div key={m} className="hr mono" style={{ top: (m - dayStart) * pxPerMin }}>
                 {formatHour(m)}
               </div>
             ))}
@@ -208,17 +214,18 @@ export function CalendarGrid({
                   onDoubleClick={(e) => {
                     if (!canEdit || e.target !== e.currentTarget) return;
                     const r = e.currentTarget.getBoundingClientRect();
-                    onCreateAt(key, snap(DAY_START + (e.clientY - r.top) / pxPerMin));
+                    onCreateAt(key, snap(dayStart + (e.clientY - r.top) / pxPerMin));
                   }}
                 >
                   {halfMarks.map((m) => (
-                    <div key={m} className={`hline${m % 60 ? " half" : ""}`} style={{ top: (m - DAY_START) * pxPerMin }} />
+                    <div key={m} className={`hline${m % 60 ? " half" : ""}`} style={{ top: (m - dayStart) * pxPerMin }} />
                   ))}
                   {list.map((a) => (
                     <ActivityBlock
                       key={a.id}
                       activity={a}
                       pxPerMin={pxPerMin}
+                      dayStart={dayStart}
                       placement={placement[a.id]}
                       travelers={travelers}
                       canEdit={canEdit}
@@ -228,6 +235,7 @@ export function CalendarGrid({
                     />
                   ))}
                 </div>
+                <div style={{ height: PAD_BOTTOM }} />
               </div>
             );
           })}

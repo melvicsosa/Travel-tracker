@@ -14,7 +14,7 @@ export default async function AdminUsersPage() {
   const pending = users.filter((u) => u.status === "pending");
 
   return (
-    <main className="w-full max-w-3xl mx-auto p-4 sm:p-6 flex flex-col gap-6">
+    <main className="w-full max-w-[1080px] mx-auto p-4 sm:p-8 flex flex-col gap-6">
       <h1 className="text-2xl">{t.admin.users}</h1>
 
       <section className="flex flex-col gap-2">

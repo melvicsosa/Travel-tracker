@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import type { Activity, Traveler } from "@/lib/database.types";
-import { DAY_START, formatTime } from "@/lib/time";
+import { formatTime } from "@/lib/time";
 import { t } from "@/lib/i18n";
 import { Avatar } from "@/components/ui/Avatar";
 import type { Placement } from "@/lib/trip/layout";
@@ -17,6 +17,7 @@ export type DragStart = (
 export function ActivityBlock({
   activity,
   pxPerMin,
+  dayStart,
   placement,
   travelers,
   canEdit,
@@ -26,6 +27,8 @@ export function ActivityBlock({
 }: {
   activity: Activity;
   pxPerMin: number;
+  /** First visible minute of the grid (top of the column). */
+  dayStart: number;
   placement?: Placement;
   travelers: Traveler[];
   canEdit: boolean;
@@ -36,7 +39,7 @@ export function ActivityBlock({
   const ref = useRef<HTMLDivElement>(null);
   const a = activity;
   const height = a.duration_min * pxPerMin;
-  const top = (a.start_min - DAY_START) * pxPerMin;
+  const top = (a.start_min - dayStart) * pxPerMin;
   const compact = pxPerMin < 0.9;
   const tiny = height < 40;
   const cols = placement && placement.cols > 1 ? placement.cols : 1;

@@ -13,7 +13,7 @@ export default async function TripsPage() {
   const trips = (data ?? []) as Trip[];
 
   return (
-    <main className="w-full max-w-3xl mx-auto p-4 sm:p-6 flex flex-col gap-5">
+    <main className="w-full max-w-[1080px] mx-auto p-4 sm:p-8 flex flex-col gap-6">
       <div className="flex items-center gap-3">
         <h1 className="text-2xl">{t.trips.title}</h1>
         <div className="flex-1" />
@@ -26,12 +26,12 @@ export default async function TripsPage() {
           <p className="text-sm max-w-sm">{t.trips.emptyHint}</p>
         </div>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2">
+        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {trips.map((trip) => (
             <li key={trip.id}>
               <Link
                 href={`/trips/${trip.id}`}
-                className="block rounded-xl border border-line bg-surface p-4 hover:shadow-[var(--shadow)] transition-shadow"
+                className="block rounded-xl border border-line bg-surface p-5 hover:shadow-[var(--shadow)] transition-shadow"
               >
                 <div className="font-display font-bold text-lg leading-tight">{trip.name}</div>
                 <div className="text-ink-3 text-sm mt-1">

@@ -31,6 +31,11 @@ export const es = {
     noPending: "No hay solicitudes pendientes.",
     status: { pending: "Pendiente", approved: "Aprobado", rejected: "Rechazado" },
   },
+  theme: {
+    label: "Tema",
+    switchToLight: "Cambiar a modo claro",
+    switchToDark: "Cambiar a modo oscuro",
+  },
   nav: {
     trips: "Viajes",
     admin: "Administración",
@@ -79,6 +84,9 @@ export const es = {
     freeDay: "día libre",
     noActivities: "Sin actividades. Buen momento para descansar.",
     dragHint: "Arrastra el bloque para moverlo; estira el borde inferior para cambiar la duración.",
+    hoursShown: "Horas visibles",
+    from: "Desde",
+    to: "Hasta",
     until: "hasta",
   },
   activity: {
