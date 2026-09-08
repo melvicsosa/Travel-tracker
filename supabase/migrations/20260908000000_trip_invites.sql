@@ -9,7 +9,7 @@
 --     Google, the trigger turns the invite into a membership (and approves
 --     the profile if an admin sent the invite).
 
-create table public.trip_invites (
+create table if not exists public.trip_invites (
   trip_id    uuid not null references public.trips (id) on delete cascade,
   email      text not null,
   role       public.trip_role not null default 'editor',
@@ -17,19 +17,30 @@ create table public.trip_invites (
   created_at timestamptz not null default now(),
   primary key (trip_id, email)
 );
-create index trip_invites_email_idx on public.trip_invites (lower(email));
+create index if not exists trip_invites_email_idx on public.trip_invites (lower(email));
 
 alter table public.trip_invites enable row level security;
+drop policy if exists "invites: members read" on public.trip_invites;
 create policy "invites: members read" on public.trip_invites
   for select using (public.is_trip_member(trip_id));
+drop policy if exists "invites: owners manage" on public.trip_invites;
 create policy "invites: owners manage" on public.trip_invites
   for all using (public.is_trip_owner(trip_id)) with check (public.is_trip_owner(trip_id));
 
 alter table public.trip_invites replica identity full;
-alter publication supabase_realtime add table public.trip_invites;
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'trip_invites'
+  ) then
+    alter publication supabase_realtime add table public.trip_invites;
+  end if;
+end $$;
 
 -- Replaces the previous version: never fails for unknown emails.
--- Returns 'added' or 'invited'.
+-- Returns 'added' or 'invited'. The return type changed, so drop first.
+drop function if exists public.add_trip_member_by_email(uuid, text, public.trip_role);
 create or replace function public.add_trip_member_by_email(
   p_trip_id uuid,
   p_email text,
