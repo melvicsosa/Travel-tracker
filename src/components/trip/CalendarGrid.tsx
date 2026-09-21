@@ -161,7 +161,7 @@ export function CalendarGrid({
     [pxPerMin, multi, dayKeys, dayStart, dayEnd],
   );
 
-  const onPointerUp = useCallback(() => {
+  const onPointerUp = useCallback((e?: PointerEvent) => {
     const d = dragRef.current;
     if (!d) return;
     dragRef.current = null;
@@ -171,9 +171,13 @@ export function CalendarGrid({
     d.el.style.transform = "";
     setBadge(null);
 
+    // The browser took the gesture over (scroll, system gesture): never write.
+    if (e?.type === "pointercancel") return;
+
     const a = d.activity;
     if (!d.moved) {
-      onOpen(a);
+      // Releasing an armed long-press without moving just puts the card down.
+      if (!d.touchBlock) onOpen(a);
       return;
     }
     if (d.mode === "move") {
