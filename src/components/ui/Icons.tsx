@@ -39,6 +39,20 @@ export const RedoIcon = ({ className }: P) => (
   </svg>
 );
 
+export const LockIcon = ({ className }: P) => (
+  <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <rect x="4" y="9" width="12" height="8.5" rx="2" />
+    <path d="M6.5 9V6.5a3.5 3.5 0 0 1 7 0V9" />
+  </svg>
+);
+
+export const UnlockIcon = ({ className }: P) => (
+  <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <rect x="4" y="9" width="12" height="8.5" rx="2" />
+    <path d="M6.5 9V6.5a3.5 3.5 0 0 1 6.6-1.6" />
+  </svg>
+);
+
 export const SettingsIcon = ({ className }: P) => (
   <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <circle cx="10" cy="10" r="2.6" />

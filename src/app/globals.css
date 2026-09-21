@@ -170,6 +170,8 @@ button { cursor: pointer; }
 .btn.danger { color: var(--hibiscus); border-color: transparent; background: transparent; }
 .btn.danger:hover { background: color-mix(in srgb, var(--hibiscus) 12%, transparent); }
 .btn.icon { width: 40px; padding: 0; }
+/* Grid unlocked: the padlock stays highlighted so the risky state is obvious. */
+.btn.lockopen { border-color: transparent; background: color-mix(in srgb, var(--citrus) 18%, transparent); color: var(--citrus); }
 .btn.sm { height: 32px; padding: 0 11px; font-size: 14.5px; border-radius: 8px; gap: 5px; }
 .btn.sm svg { width: 14px; height: 14px; }
 .btn.sm.ghost { color: var(--teal); }

@@ -86,6 +86,10 @@ export const es = {
     undo: "Deshacer",
     redo: "Rehacer",
   },
+  lock: {
+    unlock: "Desbloquear para mover actividades",
+    lock: "Bloquear: nada se mueve",
+  },
   settings: {
     title: "Ajustes del viaje",
     open: "Ajustes",
