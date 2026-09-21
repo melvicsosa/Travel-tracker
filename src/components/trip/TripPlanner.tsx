@@ -17,7 +17,7 @@ import {
 } from "@/lib/trip/history";
 import { t } from "@/lib/i18n";
 import { DAY_END, DAY_START, SNAP, clamp, daysBetween, formatRange, nowInZone, snap, toYMD } from "@/lib/time";
-import { BackIcon, MenuIcon, PlusIcon, RedoIcon, UndoIcon } from "@/components/ui/Icons";
+import { BackIcon, LockIcon, MenuIcon, PlusIcon, RedoIcon, UndoIcon, UnlockIcon } from "@/components/ui/Icons";
 import { DayStrip } from "./DayStrip";
 import { HourRange } from "./HourRange";
 import { CalendarGrid } from "./CalendarGrid";
@@ -86,6 +86,10 @@ export function TripPlanner({
   }, []);
 
   const canEdit = me.isAdmin || me.role === "owner" || me.role === "editor";
+  // The grid always opens locked so nothing moves by accident; dragging,
+  // resizing and keyboard moves need an explicit unlock. Sheets still edit.
+  const [locked, setLocked] = useState(true);
+  const canDrag = canEdit && !locked;
   const isOwner = me.isAdmin || me.role === "owner";
   const timeZone = trip.timezone || "America/New_York";
   const days = useMemo(() => daysBetween(trip.start_date, trip.end_date), [trip.start_date, trip.end_date]);
@@ -409,6 +413,15 @@ export function TripPlanner({
         {canEdit ? (
           <div className="flex items-center gap-1">
             <button
+              className={`btn icon ${locked ? "ghost" : "lockopen"}`}
+              onClick={() => setLocked((v) => !v)}
+              aria-pressed={!locked}
+              aria-label={locked ? t.lock.unlock : t.lock.lock}
+              title={locked ? t.lock.unlock : t.lock.lock}
+            >
+              {locked ? <LockIcon /> : <UnlockIcon />}
+            </button>
+            <button
               className="btn icon ghost"
               onClick={undo}
               disabled={!historyFlags.canUndo}
@@ -464,7 +477,7 @@ export function TripPlanner({
                 timeZone={timeZone}
                 activities={visible}
                 travelers={travelers}
-                canEdit={canEdit}
+                canEdit={canDrag}
                 onMove={moveActivity}
                 onOpen={openActivity}
                 onCreateAt={newActivity}
@@ -483,7 +496,7 @@ export function TripPlanner({
               timeZone={timeZone}
               activities={visible}
               travelers={travelers}
-              canEdit={canEdit}
+              canEdit={canDrag}
               onMove={moveActivity}
               onOpen={openActivity}
               onCreateAt={newActivity}
