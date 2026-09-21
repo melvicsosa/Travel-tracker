@@ -66,6 +66,16 @@ persisted history across reloads, undo for traveler/trip/member edits.
     with the codebase's established pattern rather than introducing a new size.
   - Not verified on real touch hardware for the shortcut/keyboard interaction with on-screen
     keyboards; keyboard shortcuts tested only by code review (no device available).
+- Parent readback correction at commit 763bf6a: `pointercancel` no longer commits a move
+  (it used to share the release path and write), and releasing an armed, unmoved long-press
+  no longer opens the sheet (T1 acceptance). `npx tsc --noEmit`: pass. `npm run lint`: pass.
+- Review: RDD off. `gentle-ai review assess` (base b2787a2, committed-only): medium
+  (`executable_change`), 417 changed lines → writer self-verification + parent spot check
+  (tsc + lint re-run: pass).
+
+## Pending checks
+- On-device touch test (iOS Safari + Android Chrome): swipe over a card scrolls; 400 ms hold
+  arms; scroll stays blocked while armed. Not possible from this environment.
 
 ## Next step
-Both tasks done; feature ready for user review/PR.
+Owner tests on a phone; then PR (single-pr).
