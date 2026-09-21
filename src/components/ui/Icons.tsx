@@ -25,6 +25,20 @@ export const CloseIcon = ({ className }: P) => (
   </svg>
 );
 
+export const UndoIcon = ({ className }: P) => (
+  <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M4 9h8a5 5 0 1 1 0 10h-2" />
+    <path d="M8 5L4 9l4 4" />
+  </svg>
+);
+
+export const RedoIcon = ({ className }: P) => (
+  <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M16 9H8a5 5 0 1 0 0 10h2" />
+    <path d="M12 5l4 4-4 4" />
+  </svg>
+);
+
 export const SettingsIcon = ({ className }: P) => (
   <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <circle cx="10" cy="10" r="2.6" />

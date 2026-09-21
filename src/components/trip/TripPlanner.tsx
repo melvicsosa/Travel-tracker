@@ -2,13 +2,22 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Activity, Traveler, Trip, TripInvite, TripMemberWithProfile, TripRole } from "@/lib/database.types";
 import { createClient } from "@/lib/supabase/client";
 import { repo } from "@/lib/trip/repo";
+import {
+  activitiesEqual,
+  createHistory,
+  inverseEntry,
+  popRedo,
+  popUndo,
+  pushHistory,
+  type ActivityHistoryEntry,
+} from "@/lib/trip/history";
 import { t } from "@/lib/i18n";
 import { DAY_END, DAY_START, SNAP, clamp, daysBetween, formatRange, nowInZone, snap, toYMD } from "@/lib/time";
-import { BackIcon, MenuIcon, PlusIcon } from "@/components/ui/Icons";
+import { BackIcon, MenuIcon, PlusIcon, RedoIcon, UndoIcon } from "@/components/ui/Icons";
 import { DayStrip } from "./DayStrip";
 import { HourRange } from "./HourRange";
 import { CalendarGrid } from "./CalendarGrid";
@@ -118,6 +127,94 @@ export function TripPlanner({
     setTimeout(() => setNotice(null), 4000);
   }, []);
 
+  // Local undo/redo history for this user's own edits (move/resize, create,
+  // edit, delete). Kept in a ref so applying an undo/redo can read and update
+  // it synchronously; `historyFlags` only exists to drive the toolbar buttons.
+  const historyRef = useRef(createHistory());
+  const [historyFlags, setHistoryFlags] = useState({ canUndo: false, canRedo: false });
+  const syncHistoryFlags = useCallback(() => {
+    const h = historyRef.current;
+    setHistoryFlags({ canUndo: h.undo.length > 0, canRedo: h.redo.length > 0 });
+  }, []);
+  const pushHistoryEntry = useCallback(
+    (entry: ActivityHistoryEntry) => {
+      historyRef.current = pushHistory(historyRef.current, entry);
+      syncHistoryFlags();
+    },
+    [syncHistoryFlags],
+  );
+  // Applies an entry's "after" state through the same optimistic setActivities +
+  // repo.upsertActivity/deleteActivity path used elsewhere. Used only by
+  // undo/redo, so it never pushes a new history entry itself.
+  const applyHistoryEntry = useCallback(
+    (entry: ActivityHistoryEntry, onError?: () => void) => {
+      const handleError = (e: unknown) => {
+        fail(e);
+        onError?.();
+      };
+      if (entry.kind === "delete") {
+        setActivities((list) => list.filter((x) => x.id !== entry.activity.id));
+        repo.deleteActivity(entry.activity.id).catch(handleError);
+        return;
+      }
+      const a = entry.kind === "update" ? entry.after : entry.activity;
+      setActivities((list) => (list.some((x) => x.id === a.id) ? list.map((x) => (x.id === a.id ? a : x)) : [...list, a]));
+      repo.upsertActivity(a).catch(handleError);
+    },
+    [fail],
+  );
+  const undo = useCallback(() => {
+    const popped = popUndo(historyRef.current);
+    if (!popped) return;
+    historyRef.current = popped.next;
+    syncHistoryFlags();
+    applyHistoryEntry(inverseEntry(popped.entry), () => {
+      // The write failed: put the entry back where it was.
+      const reverted = popRedo(historyRef.current);
+      if (reverted) {
+        historyRef.current = reverted.next;
+        syncHistoryFlags();
+      }
+    });
+  }, [applyHistoryEntry, syncHistoryFlags]);
+  const redo = useCallback(() => {
+    const popped = popRedo(historyRef.current);
+    if (!popped) return;
+    historyRef.current = popped.next;
+    syncHistoryFlags();
+    applyHistoryEntry(popped.entry, () => {
+      // The write failed: put the entry back where it was.
+      const reverted = popUndo(historyRef.current);
+      if (reverted) {
+        historyRef.current = reverted.next;
+        syncHistoryFlags();
+      }
+    });
+  }, [applyHistoryEntry, syncHistoryFlags]);
+
+  // Keyboard shortcuts: Cmd/Ctrl+Z undo, Shift+Cmd/Ctrl+Z or Ctrl+Y redo.
+  // Ignored while typing in a field or while a sheet/panel is open.
+  useEffect(() => {
+    if (!canEdit) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      const typing = Boolean(target?.isContentEditable) || tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+      if (typing || editing || settingsOpen || panelOpen) return;
+      const key = e.key.toLowerCase();
+      if ((e.metaKey || e.ctrlKey) && key === "z") {
+        e.preventDefault();
+        if (e.shiftKey) redo();
+        else undo();
+      } else if (e.ctrlKey && !e.metaKey && key === "y") {
+        e.preventDefault();
+        redo();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [canEdit, editing, settingsOpen, panelOpen, undo, redo]);
+
   const visible = useMemo(
     () => (filterTraveler ? activities.filter((a) => a.traveler_ids.includes(filterTraveler)) : activities),
     [activities, filterTraveler],
@@ -134,30 +231,39 @@ export function TripPlanner({
       const duration = clamp(snap(durationMin), SNAP, 1440 - start);
       if (a.date === date && a.start_min === start && a.duration_min === duration) return;
       const patch = { date, start_min: start, duration_min: duration };
+      pushHistoryEntry({ kind: "update", id: a.id, before: a, after: { ...a, ...patch } });
       setActivities((list) => list.map((x) => (x.id === a.id ? { ...x, ...patch } : x)));
       repo.moveActivity(a.id, patch).catch(fail);
     },
-    [fail],
+    [fail, pushHistoryEntry],
   );
 
   const saveActivity = useCallback(
     (a: Activity) => {
+      const prior = activities.find((x) => x.id === a.id);
+      if (prior) {
+        if (!activitiesEqual(prior, a)) pushHistoryEntry({ kind: "update", id: a.id, before: prior, after: a });
+      } else {
+        pushHistoryEntry({ kind: "create", activity: a });
+      }
       setActivities((list) => (list.some((x) => x.id === a.id) ? list.map((x) => (x.id === a.id ? a : x)) : [...list, a]));
       setEditing(null);
       const i = dayKeys.indexOf(a.date);
       if (i >= 0) setDayIndex(i);
       repo.upsertActivity(a).catch(fail);
     },
-    [dayKeys, fail],
+    [activities, dayKeys, fail, pushHistoryEntry],
   );
 
   const deleteActivity = useCallback(
     (id: string) => {
+      const a = activities.find((x) => x.id === id);
+      if (a) pushHistoryEntry({ kind: "delete", activity: a });
       setActivities((list) => list.filter((x) => x.id !== id));
       setEditing(null);
       repo.deleteActivity(id).catch(fail);
     },
-    [fail],
+    [activities, fail, pushHistoryEntry],
   );
 
   const newActivity = useCallback(
@@ -299,6 +405,28 @@ export function TripPlanner({
           <button className="btn icon ghost" onClick={() => setSettingsOpen(true)} aria-label={t.settings.open} title={t.settings.open}>
             <SettingsIcon />
           </button>
+        ) : null}
+        {canEdit ? (
+          <div className="flex items-center gap-1">
+            <button
+              className="btn icon ghost"
+              onClick={undo}
+              disabled={!historyFlags.canUndo}
+              aria-label={t.history.undo}
+              title={t.history.undo}
+            >
+              <UndoIcon />
+            </button>
+            <button
+              className="btn icon ghost"
+              onClick={redo}
+              disabled={!historyFlags.canRedo}
+              aria-label={t.history.redo}
+              title={t.history.redo}
+            >
+              <RedoIcon />
+            </button>
+          </div>
         ) : null}
         {canEdit ? (
           <button className="btn primary hidden sm:inline-flex" onClick={() => newActivity()}>

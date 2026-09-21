@@ -82,6 +82,10 @@ export const es = {
     remove: "Quitar del viaje",
   },
   views: { day: "Día", period: "Periodo", agenda: "Agenda" },
+  history: {
+    undo: "Deshacer",
+    redo: "Rehacer",
+  },
   settings: {
     title: "Ajustes del viaje",
     open: "Ajustes",
