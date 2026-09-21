@@ -28,7 +28,7 @@ persisted history across reloads, undo for traveler/trip/member edits.
 - Delivery strategy: single-pr. Forecast: ~350 authored changed lines.
 
 ## Tasks
-- [ ] T1 Long-press to move on touch — route: delegated (writer trigger: CalendarGrid.tsx,
+- [x] T1 Long-press to move on touch — route: delegated (writer trigger: CalendarGrid.tsx,
       ActivityBlock.tsx, globals.css, es.ts)
   - Acceptance: swiping over a card scrolls and writes nothing; holding ~400 ms without moving
     more than ~8 px arms the drag, card gets an `armed` style (raised border/shadow) and a haptic
@@ -45,7 +45,12 @@ persisted history across reloads, undo for traveler/trip/member edits.
     corrupt the stacks.
 
 ## Progress / evidence
-- (pending)
+- T1 done at commit a4579cc (`fix(grid): require long-press before dragging on touch/pen`).
+  - `npm run lint`: pass, no warnings/errors.
+  - `npx tsc --noEmit`: pass, no errors.
+  - Not verified on real touch hardware (no device available); logic reviewed against the
+    Pointer Events / touch spec (pointercancel on browser-recognized scroll, non-passive
+    touchmove preventDefault while armed).
 
 ## Next step
-T1.
+T2.
