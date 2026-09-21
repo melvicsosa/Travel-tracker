@@ -82,6 +82,10 @@ export const es = {
     remove: "Quitar del viaje",
   },
   views: { day: "Día", period: "Periodo", agenda: "Agenda" },
+  history: {
+    undo: "Deshacer",
+    redo: "Rehacer",
+  },
   settings: {
     title: "Ajustes del viaje",
     open: "Ajustes",
@@ -106,6 +110,7 @@ export const es = {
     freeDay: "día libre",
     noActivities: "Sin actividades. Buen momento para descansar.",
     dragHint: "Arrastra el bloque para moverlo; estira el borde inferior para cambiar la duración.",
+    longPressHint: "Mantén presionado para mover",
     now: "Ahora",
     until: "hasta",
   },

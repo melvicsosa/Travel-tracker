@@ -19,7 +19,24 @@ type Drag = {
   dCol: number;
   moved: boolean;
   pointerId: number;
+  /** Removed on release; blocks native touch scrolling while a touch/pen drag is armed. */
+  touchBlock?: (e: TouchEvent) => void;
 };
+
+/** A touch/pen press waiting to become a drag once it has been held long enough. */
+type PendingPress = {
+  el: HTMLDivElement;
+  pointerId: number;
+  timer?: ReturnType<typeof setTimeout>;
+  onMove: (e: PointerEvent) => void;
+  onUp: (e: PointerEvent) => void;
+  onCancel: (e: PointerEvent) => void;
+};
+
+/** How long a touch/pen press must be held before it arms into a drag. */
+const LONG_PRESS_MS = 400;
+/** Movement past this many px before arming cancels the long-press and lets the page scroll. */
+const LONG_PRESS_TOLERANCE_PX = 8;
 
 /**
  * The time grid. One column per day. `hourPx` sets the vertical scale:
@@ -72,6 +89,7 @@ export function CalendarGrid({
   const colsRef = useRef<HTMLDivElement>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<Drag | null>(null);
+  const pendingRef = useRef<PendingPress | null>(null);
   const [badge, setBadge] = useState<{ x: number; y: number; text: string } | null>(null);
 
   const byDay = useMemo(() => {
@@ -92,8 +110,10 @@ export function CalendarGrid({
   useEffect(() => {
     const el = scrollerRef.current;
     if (!el) return;
+    // Always land on the current time of day (the trip's zone) when it is
+    // inside the visible window; otherwise on the first activity.
     let target = dayStart;
-    if (dayKeys.includes(today) && now.minutes >= dayStart && now.minutes <= dayEnd) {
+    if (now.minutes >= dayStart && now.minutes <= dayEnd) {
       target = now.minutes - 60;
     } else {
       const first = dayKeys.map((k) => byDay[k]?.list[0]).find(Boolean);
@@ -141,18 +161,23 @@ export function CalendarGrid({
     [pxPerMin, multi, dayKeys, dayStart, dayEnd],
   );
 
-  const onPointerUp = useCallback(() => {
+  const onPointerUp = useCallback((e?: PointerEvent) => {
     const d = dragRef.current;
     if (!d) return;
     dragRef.current = null;
     document.removeEventListener("pointermove", onPointerMove);
-    d.el.classList.remove("dragging");
+    d.el.classList.remove("dragging", "armed");
+    if (d.touchBlock) d.el.removeEventListener("touchmove", d.touchBlock);
     d.el.style.transform = "";
     setBadge(null);
 
+    // The browser took the gesture over (scroll, system gesture): never write.
+    if (e?.type === "pointercancel") return;
+
     const a = d.activity;
     if (!d.moved) {
-      onOpen(a);
+      // Releasing an armed long-press without moving just puts the card down.
+      if (!d.touchBlock) onOpen(a);
       return;
     }
     if (d.mode === "move") {
@@ -163,11 +188,100 @@ export function CalendarGrid({
     }
   }, [dayKeys, onMove, onOpen, onPointerMove]);
 
+  const clearPendingPress = useCallback(() => {
+    const p = pendingRef.current;
+    if (!p) return;
+    if (p.timer) clearTimeout(p.timer);
+    document.removeEventListener("pointermove", p.onMove);
+    document.removeEventListener("pointerup", p.onUp);
+    document.removeEventListener("pointercancel", p.onCancel);
+    pendingRef.current = null;
+  }, []);
+
+  /** Starts the real drag/resize tracking. `armed` is true for a touch/pen press that survived the long-press wait. */
+  const beginDrag = useCallback(
+    (pointerId: number, x0: number, y0: number, activity: Activity, mode: "move" | "resize", el: HTMLDivElement, armed: boolean) => {
+      const colEls = colsRef.current ? Array.from(colsRef.current.querySelectorAll<HTMLElement>(".col")) : [];
+      const colWidth = colEls.length ? colEls[0].getBoundingClientRect().width : 0;
+      let touchBlock: ((e: TouchEvent) => void) | undefined;
+      if (armed) {
+        el.classList.add("armed");
+        navigator.vibrate?.(10);
+        // touch-action can't change mid-gesture, so scrolling is blocked by hand from here on.
+        touchBlock = (e) => e.preventDefault();
+        el.addEventListener("touchmove", touchBlock, { passive: false });
+      }
+      dragRef.current = {
+        activity, el, mode, x0, y0, colWidth,
+        startIdx: dayKeys.indexOf(activity.date), dMin: 0, dCol: 0, moved: false, pointerId, touchBlock,
+      };
+      try {
+        el.setPointerCapture(pointerId);
+      } catch {
+        // Best-effort: some browsers reject capture once a gesture already resolved.
+      }
+      el.classList.add("dragging");
+      document.addEventListener("pointermove", onPointerMove);
+      document.addEventListener("pointerup", onPointerUp, { once: true });
+      document.addEventListener("pointercancel", onPointerUp, { once: true });
+    },
+    [dayKeys, onPointerMove, onPointerUp],
+  );
+
+  /**
+   * Touch/pen presses wait for a long-press before becoming a drag, so a plain
+   * swipe over a card scrolls the grid instead. `canArm` is false for a
+   * read-only viewer, where a hold never becomes a drag — only a plain tap opens.
+   */
+  const startPendingPress = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>, activity: Activity, mode: "move" | "resize", el: HTMLDivElement, canArm: boolean) => {
+      clearPendingPress();
+      const pointerId = e.pointerId;
+      const x0 = e.clientX;
+      const y0 = e.clientY;
+      const onMove = (ev: PointerEvent) => {
+        if (ev.pointerId !== pointerId) return;
+        if (Math.abs(ev.clientX - x0) > LONG_PRESS_TOLERANCE_PX || Math.abs(ev.clientY - y0) > LONG_PRESS_TOLERANCE_PX) {
+          clearPendingPress();
+        }
+      };
+      const onUp = (ev: PointerEvent) => {
+        if (ev.pointerId !== pointerId || !pendingRef.current) return;
+        clearPendingPress();
+        onOpen(activity);
+      };
+      const onCancel = (ev: PointerEvent) => {
+        if (ev.pointerId !== pointerId) return;
+        clearPendingPress();
+      };
+      const timer = canArm
+        ? setTimeout(() => {
+            document.removeEventListener("pointermove", onMove);
+            document.removeEventListener("pointerup", onUp);
+            document.removeEventListener("pointercancel", onCancel);
+            pendingRef.current = null;
+            beginDrag(pointerId, x0, y0, activity, mode, el, true);
+          }, LONG_PRESS_MS)
+        : undefined;
+      pendingRef.current = { el, pointerId, timer, onMove, onUp, onCancel };
+      document.addEventListener("pointermove", onMove);
+      document.addEventListener("pointerup", onUp);
+      document.addEventListener("pointercancel", onCancel);
+    },
+    [beginDrag, clearPendingPress, onOpen],
+  );
+
   const onDragStart: DragStart = useCallback(
     (e, activity, mode, el) => {
       if (e.pointerType === "mouse" && e.button !== 0) return;
+      const touchLike = e.pointerType === "touch" || e.pointerType === "pen";
+
       if (!canEdit) {
-        // Read-only: a tap just opens the activity.
+        // Read-only: a tap opens the activity; a touch/pen swipe must still scroll.
+        if (touchLike) {
+          startPendingPress(e, activity, "move", el, false);
+          return;
+        }
         dragRef.current = {
           activity, el, mode: "move", x0: e.clientX, y0: e.clientY, colWidth: 0,
           startIdx: 0, dMin: 0, dCol: 0, moved: false, pointerId: e.pointerId,
@@ -175,27 +289,25 @@ export function CalendarGrid({
         document.addEventListener("pointerup", onPointerUp, { once: true });
         return;
       }
-      const colEls = colsRef.current ? Array.from(colsRef.current.querySelectorAll<HTMLElement>(".col")) : [];
-      const colWidth = colEls.length ? colEls[0].getBoundingClientRect().width : 0;
-      dragRef.current = {
-        activity, el, mode, x0: e.clientX, y0: e.clientY, colWidth,
-        startIdx: dayKeys.indexOf(activity.date), dMin: 0, dCol: 0, moved: false, pointerId: e.pointerId,
-      };
-      el.setPointerCapture(e.pointerId);
-      el.classList.add("dragging");
-      document.addEventListener("pointermove", onPointerMove);
-      document.addEventListener("pointerup", onPointerUp, { once: true });
-      document.addEventListener("pointercancel", onPointerUp, { once: true });
+
+      if (touchLike) {
+        // Wait for a long-press before arming the drag; a plain swipe scrolls instead.
+        startPendingPress(e, activity, mode, el, true);
+        return;
+      }
+
+      beginDrag(e.pointerId, e.clientX, e.clientY, activity, mode, el, false);
       e.preventDefault();
     },
-    [canEdit, dayKeys, onPointerMove, onPointerUp],
+    [beginDrag, canEdit, onPointerUp, startPendingPress],
   );
 
   useEffect(() => {
     return () => {
       document.removeEventListener("pointermove", onPointerMove);
+      clearPendingPress();
     };
-  }, [onPointerMove]);
+  }, [onPointerMove, clearPendingPress]);
 
   const onKeyMove = useCallback(
     (a: Activity, dMin: number, dDay: number) => {
@@ -211,7 +323,9 @@ export function CalendarGrid({
   const halfMarks: number[] = [];
   for (let m = dayStart; m <= dayEnd; m += 30) halfMarks.push(m);
 
-  const showNow = dayKeys.includes(today) && now.minutes >= dayStart && now.minutes <= dayEnd;
+  // The red line is solid on today's column and a faint dashed reference on
+  // every other day, so the current time is always readable.
+  const showNow = now.minutes >= dayStart && now.minutes <= dayEnd;
   const nowTop = (now.minutes - dayStart) * pxPerMin;
 
   return (
@@ -258,7 +372,7 @@ export function CalendarGrid({
                   {halfMarks.map((m) => (
                     <div key={m} className={`hline${m % 60 ? " half" : ""}`} style={{ top: (m - dayStart) * pxPerMin }} />
                   ))}
-                  {showNow && key === today ? <div className="nowline" style={{ top: nowTop }} aria-hidden="true" /> : null}
+                  {showNow ? <div className={`nowline${key === today ? "" : " ref"}`} style={{ top: nowTop }} aria-hidden="true" /> : null}
                   {list.map((a) => (
                     <ActivityBlock
                       key={a.id}

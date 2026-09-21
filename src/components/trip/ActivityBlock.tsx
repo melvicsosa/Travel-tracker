@@ -67,6 +67,7 @@ export function ActivityBlock({
       tabIndex={0}
       role="button"
       aria-label={`${a.title}, ${formatTime(a.start_min)}`}
+      title={canEdit ? t.calendar.longPressHint : undefined}
       data-act={a.id}
       onPointerDown={(e) => {
         if (!ref.current) return;
@@ -74,6 +75,7 @@ export function ActivityBlock({
         const mode = target.classList.contains("rz") ? "resize" : "move";
         onDragStart(e, a, canEdit ? mode : "move", ref.current);
       }}
+      onContextMenu={(e) => e.preventDefault()}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
