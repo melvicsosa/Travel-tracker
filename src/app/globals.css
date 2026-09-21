@@ -372,6 +372,8 @@ button { cursor: pointer; }
 /* Current time line (Outlook style) */
 .nowline { position: absolute; left: 0; right: 0; height: 0; border-top: 2px solid var(--hibiscus); z-index: 5; pointer-events: none; }
 .nowline::before { content: ""; position: absolute; left: -5px; top: -6px; width: 10px; height: 10px; border-radius: 50%; background: var(--hibiscus); }
+.nowline.ref { border-top-style: dashed; opacity: 0.55; }
+.nowline.ref::before { display: none; }
 .gutter .nowlabel {
   position: absolute; right: 6px; transform: translateY(-50%); z-index: 6; pointer-events: none;
   font-size: 11px; font-weight: 700; color: var(--paper); background: var(--hibiscus); padding: 1px 6px; border-radius: 6px;

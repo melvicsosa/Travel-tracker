@@ -92,8 +92,10 @@ export function CalendarGrid({
   useEffect(() => {
     const el = scrollerRef.current;
     if (!el) return;
+    // Always land on the current time of day (the trip's zone) when it is
+    // inside the visible window; otherwise on the first activity.
     let target = dayStart;
-    if (dayKeys.includes(today) && now.minutes >= dayStart && now.minutes <= dayEnd) {
+    if (now.minutes >= dayStart && now.minutes <= dayEnd) {
       target = now.minutes - 60;
     } else {
       const first = dayKeys.map((k) => byDay[k]?.list[0]).find(Boolean);
@@ -211,7 +213,9 @@ export function CalendarGrid({
   const halfMarks: number[] = [];
   for (let m = dayStart; m <= dayEnd; m += 30) halfMarks.push(m);
 
-  const showNow = dayKeys.includes(today) && now.minutes >= dayStart && now.minutes <= dayEnd;
+  // The red line is solid on today's column and a faint dashed reference on
+  // every other day, so the current time is always readable.
+  const showNow = now.minutes >= dayStart && now.minutes <= dayEnd;
   const nowTop = (now.minutes - dayStart) * pxPerMin;
 
   return (
@@ -258,7 +262,7 @@ export function CalendarGrid({
                   {halfMarks.map((m) => (
                     <div key={m} className={`hline${m % 60 ? " half" : ""}`} style={{ top: (m - dayStart) * pxPerMin }} />
                   ))}
-                  {showNow && key === today ? <div className="nowline" style={{ top: nowTop }} aria-hidden="true" /> : null}
+                  {showNow ? <div className={`nowline${key === today ? "" : " ref"}`} style={{ top: nowTop }} aria-hidden="true" /> : null}
                   {list.map((a) => (
                     <ActivityBlock
                       key={a.id}
