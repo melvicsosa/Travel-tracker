@@ -106,6 +106,7 @@ export const es = {
     freeDay: "día libre",
     noActivities: "Sin actividades. Buen momento para descansar.",
     dragHint: "Arrastra el bloque para moverlo; estira el borde inferior para cambiar la duración.",
+    longPressHint: "Mantén presionado para mover",
     now: "Ahora",
     until: "hasta",
   },
