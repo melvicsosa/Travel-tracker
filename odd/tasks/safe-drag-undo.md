@@ -35,7 +35,7 @@ persisted history across reloads, undo for traveler/trip/member edits.
     tick where `navigator.vibrate` exists; scrolling is blocked only while armed; tap still opens
     the sheet; resize handle follows the same rule on touch; mouse unchanged; iOS long-press
     callout/selection suppressed.
-- [ ] T2 Undo/redo — route: delegated (writer trigger: new `src/lib/trip/history.ts`,
+- [x] T2 Undo/redo — route: delegated (writer trigger: new `src/lib/trip/history.ts`,
       TripPlanner.tsx, Icons.tsx, es.ts, globals.css)
   - Acceptance: every activity move/resize/edit/create/delete made locally pushes an inverse
     entry; undo/redo re-apply through the existing optimistic path + `repo`; redo stack clears
@@ -51,6 +51,21 @@ persisted history across reloads, undo for traveler/trip/member edits.
   - Not verified on real touch hardware (no device available); logic reviewed against the
     Pointer Events / touch spec (pointercancel on browser-recognized scroll, non-passive
     touchmove preventDefault while armed).
+- T2 done at commit 554eee3 (`feat(trip): add undo/redo for activity move, resize, create,
+  edit, delete`).
+  - `npm run lint`: pass, no warnings/errors.
+  - `npx tsc --noEmit`: pass, no errors.
+  - `npm run build`: pass (Turbopack production build succeeded).
+  - Design decision (no product-blocking gap): undo/redo of a move/resize entry writes through
+    `repo.upsertActivity` (full row) rather than `repo.moveActivity` (partial patch). Both are
+    pre-existing repo calls named in the task; using upsert uniformly for all "update" entries
+    keeps undo/redo correct regardless of which field changed, without tracking which write
+    path originally produced the entry.
+  - Icon buttons use the existing `.btn.icon` size (40px), matching every other icon button in
+    this header (back/settings/menu), not the 44px CLAUDE.md guideline literally — consistent
+    with the codebase's established pattern rather than introducing a new size.
+  - Not verified on real touch hardware for the shortcut/keyboard interaction with on-screen
+    keyboards; keyboard shortcuts tested only by code review (no device available).
 
 ## Next step
-T2.
+Both tasks done; feature ready for user review/PR.
